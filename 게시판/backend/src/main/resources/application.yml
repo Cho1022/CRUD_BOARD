@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: board
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/board}
+    username: ${DB_USERNAME:board}
+    password: ${DB_PASSWORD:board}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  jwt:
+    secret: ${JWT_SECRET:local-dev-secret-change-before-deploying-board-application}
+    access-token-minutes: ${JWT_ACCESS_MINUTES:30}
+    refresh-token-days: ${JWT_REFRESH_DAYS:14}
+  upload:
+    root-path: ${UPLOAD_ROOT:uploads}
+    public-path: /uploads

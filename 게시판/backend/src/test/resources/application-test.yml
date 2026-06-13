@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:board;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  flyway:
+    enabled: false
+
+app:
+  cors:
+    allowed-origins: http://localhost:5173
+  jwt:
+    secret: test-secret-with-enough-length-for-hmac-signing
+    access-token-minutes: 30
+    refresh-token-days: 14
+  upload:
+    root-path: build/test-uploads
+    public-path: /uploads
