@@ -76,11 +76,27 @@ async function retryAfterRefresh(path: string, options: RequestInit) {
     method: "POST",
     credentials: "include"
   });
-  const payload = await refreshed.json() as ApiResponse<{ accessToken: string }>;
-  if (payload.data?.accessToken) {
-    window.localStorage.setItem("board_access_token", payload.data.accessToken);
+
+  if (!refreshed.ok) {
+    window.localStorage.removeItem("board_access_token");
+    return refreshed;
   }
-  return fetch(`${API_BASE}${path}`, { ...options, credentials: "include" });
+
+  const payload = await refreshed.json() as ApiResponse<{ accessToken: string }>;
+  const accessToken = payload.data?.accessToken;
+  if (!accessToken) {
+    window.localStorage.removeItem("board_access_token");
+    return new Response(JSON.stringify(payload), {
+      status: 401,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  window.localStorage.setItem("board_access_token", accessToken);
+  const headers = new Headers(options.headers);
+  headers.set("Authorization", `Bearer ${accessToken}`);
+
+  return fetch(`${API_BASE}${path}`, { ...options, headers, credentials: "include" });
 }
 
 export function toPost(post: BackendPost): Post {
