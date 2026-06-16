@@ -58,6 +58,7 @@ public class PostService {
         val image = request.image() == null || request.image().isEmpty() ? post.getImageUrl() : fileStorage.store(request.image(), "posts").url();
         post.update(request.title(), request.content(), type(request.postType()), image, request.canonicalUrl(), visible(request.isPublic()));
         postTagRepository.deleteByPost(post);
+        postTagRepository.flush();      // JPA 영속성 컨텍스트 flush입니다. DB먼저 삭제 -> 추후 로직 추가 필요
         saveTags(post, request.tags());
         return detail(post);
     }

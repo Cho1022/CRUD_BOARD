@@ -20,5 +20,5 @@ app:
     access-token-minutes: ${JWT_ACCESS_MINUTES:30}
     refresh-token-days: ${JWT_REFRESH_DAYS:14}
   upload:
-    root-path: ${UPLOAD_ROOT:uploads}
+    root-path: ${UPLOAD_ROOT:${user.home}/.board/uploads}
     public-path: /uploads

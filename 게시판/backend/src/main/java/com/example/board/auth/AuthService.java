@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AuthService {
     private static final String DEFAULT_PROFILE_IMAGE_URL = "";
+    private static final String SYSTEM_AUTHOR_EMAIL = "system@board.local";
     private final MemberRepository memberRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -41,7 +42,7 @@ public class AuthService {
     public AuthTokens signup(SignupRequest request) {
         validateSignup(request);
         fileValidator.optionalImage(request.profileImage());
-        val role = memberRepository.count() == 0 ? MemberRole.ADMIN : MemberRole.USER;
+        val role = memberRepository.countByEmailNot(SYSTEM_AUTHOR_EMAIL) == 0 ? MemberRole.ADMIN : MemberRole.USER;
         val imageUrl = profileImageUrl(request);
         val member = new Member(email(request.email()), hash(request.password()), request.nickname(), imageUrl, role);
         memberRepository.save(member);

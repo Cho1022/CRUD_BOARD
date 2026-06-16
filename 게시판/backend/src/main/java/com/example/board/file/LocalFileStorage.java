@@ -6,11 +6,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 @Component
 public class LocalFileStorage implements FileStorage {
+    private static final Logger log = LoggerFactory.getLogger(LocalFileStorage.class);
     private final Path root;
     private final String publicPath;
     private final FileValidator validator;
@@ -18,7 +21,7 @@ public class LocalFileStorage implements FileStorage {
     public LocalFileStorage(@Value("${app.upload.root-path}") String root,
                             @Value("${app.upload.public-path}") String publicPath,
                             FileValidator validator) {
-        this.root = Path.of(root);
+        this.root = Path.of(root).toAbsolutePath().normalize();
         this.publicPath = publicPath;
         this.validator = validator;
     }
@@ -32,6 +35,7 @@ public class LocalFileStorage implements FileStorage {
             file.transferTo(path);
             return new StoredFile(publicPath + "/" + directory + "/" + name, path.toString());
         } catch (Exception ex) {
+            log.warn("Failed to store uploaded file", ex);
             throw new BusinessException(ErrorCode.INVALID_FILE);
         }
     }

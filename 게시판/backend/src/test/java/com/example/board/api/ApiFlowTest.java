@@ -38,6 +38,14 @@ class ApiFlowTest {
         assertThat(list.at("/data/content/0/title").asText()).isEqualTo("API 게시글");
     }
 
+    @Test
+    void createPostWithImageStoresImage() throws Exception {
+        var accessToken = signup();
+        var result = createImagePost(accessToken);
+
+        assertThat(result.at("/data/imageUrl").asText()).startsWith("/uploads/posts/");
+    }
+
     private String signup() throws Exception {
         var file = new MockMultipartFile("profileImage", "profile.png", "image/png", "x".getBytes());
         var result = mockMvc.perform(multipart("/api/auth/signup")
@@ -69,6 +77,18 @@ class ApiFlowTest {
                         .param("tags", "api,test")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk());
+    }
+
+    private JsonNode createImagePost(String token) throws Exception {
+        var file = new MockMultipartFile("image", "post.png", "image/png", "x".getBytes());
+        var result = mockMvc.perform(multipart("/api/posts")
+                        .file(file)
+                        .param("title", "Image API")
+                        .param("content", "body")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString());
     }
 
     private JsonNode listPosts() throws Exception {
