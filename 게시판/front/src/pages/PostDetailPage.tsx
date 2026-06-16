@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { getPostById } from "../data/mockPosts";
 import { api, apiErrorMessage, toPost } from "../lib/api";
+import { formatCount } from "../lib/format";
 import type { CommentItem, Post } from "../types";
 
 export function PostDetailPage() {
   const { postId } = useParams();
   const navigate = useNavigate();
-  const [post, setPost] = useState<Post | undefined>(() => getPostById(postId));
+  const [post, setPost] = useState<Post | undefined>();
   const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(post?.likes ?? 0);
+  const [likeCount, setLikeCount] = useState(0);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [comment, setComment] = useState("");
   const [likePending, setLikePending] = useState(false);
@@ -28,9 +28,8 @@ export function PostDetailPage() {
       setPost(nextPost);
       setLikeCount(nextPost.likes);
     } catch {
-      const fallback = getPostById(postId);
-      setPost(fallback);
-      setLikeCount(fallback?.likes ?? 0);
+      setPost(undefined);
+      setLikeCount(0);
     }
     await loadComments(postId);
   }
@@ -162,11 +161,4 @@ export function PostDetailPage() {
       </section>
     </article>
   );
-}
-
-function formatCount(value: number) {
-  if (value >= 100000) return "100k";
-  if (value >= 10000) return "10k";
-  if (value >= 1000) return "1k";
-  return String(value);
 }

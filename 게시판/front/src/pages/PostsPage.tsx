@@ -1,7 +1,8 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, toPost } from "../lib/api";
-import { boardCategories, categoryType, mockPosts } from "../data/mockPosts";
+import { formatCount } from "../lib/format";
+import { boardCategories, categoryType } from "../lib/postCategory";
 import type { BoardCategory, Post } from "../types";
 
 const PAGE_SIZE = 10;
@@ -18,9 +19,11 @@ export function PostsPage() {
   const categoryParam = searchParams.get("category") ?? "전체";
   const [query, setQuery] = useState(queryParam);
   const [category, setCategory] = useState(categoryParam);
-  const [remotePosts, setRemotePosts] = useState<Post[] | null>(null);
-  const [remoteTotal, setRemoteTotal] = useState<number | null>(null);
-  const [remotePages, setRemotePages] = useState<number | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     setQuery(queryParam);
@@ -32,42 +35,26 @@ export function PostsPage() {
   }, [searchParams]);
 
   async function loadPosts() {
+    setLoading(true);
     try {
       const response = await api.posts(apiQuery());
-      setRemotePosts(response.data.content.map(toPost));
-      setRemoteTotal(response.data.totalElements);
-      setRemotePages(Math.max(1, response.data.totalPages));
+      setPosts(response.data.content.map(toPost));
+      setTotalCount(response.data.totalElements);
+      setTotalPages(Math.max(1, response.data.totalPages));
+      setError("");
     } catch {
-      setRemotePosts(null);
-      setRemoteTotal(null);
-      setRemotePages(null);
+      setPosts([]);
+      setTotalCount(0);
+      setTotalPages(1);
+      setError("게시글을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  const filteredPosts = useMemo(() => {
-    const normalizedQuery = queryParam.trim().toLowerCase();
-    return mockPosts.filter((post) => {
-      const categoryMatched = categoryParam === "전체" || post.category === categoryParam;
-      const queryMatched =
-        !normalizedQuery ||
-        post.title.toLowerCase().includes(normalizedQuery) ||
-        post.author.toLowerCase().includes(normalizedQuery) ||
-        post.body.toLowerCase().includes(normalizedQuery);
-      return categoryMatched && queryMatched;
-    });
-  }, [categoryParam, queryParam]);
-
-  const totalPages = remotePages ?? Math.max(1, Math.ceil(filteredPosts.length / PAGE_SIZE));
-  const currentPage = normalizePage(searchParams.get("page"), totalPages);
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const pagePosts = remotePosts ?? filteredPosts.slice(startIndex, startIndex + PAGE_SIZE);
-  const totalCount = remoteTotal ?? filteredPosts.length;
-
   function buildParams(nextPage: number) {
     const next = new URLSearchParams(searchParams);
-    const trimmedQuery = next.get("q")?.trim() ?? "";
-    if (trimmedQuery) next.set("q", trimmedQuery);
-    else next.delete("q");
+    if (!next.get("q")?.trim()) next.delete("q");
     if ((next.get("category") ?? "전체") === "전체") next.delete("category");
     next.set("page", String(nextPage));
     return next;
@@ -95,6 +82,8 @@ export function PostsPage() {
     return `?${params.toString()}`;
   }
 
+  const currentPage = normalizePage(searchParams.get("page"), totalPages);
+
   return (
     <section className="board-section" aria-labelledby="posts-title">
       <div className="board-head">
@@ -102,22 +91,12 @@ export function PostsPage() {
           <h1 id="posts-title">전체 게시글</h1>
           <p>{totalCount}개의 글</p>
         </div>
-        <Link to="/posts/new" className="write-button">
-          글쓰기
-        </Link>
+        <Link to="/posts/new" className="write-button">글쓰기</Link>
       </div>
 
       <form className="board-search" onSubmit={handleSearch}>
-        <select
-          aria-label="말머리"
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-        >
-          {boardCategories.map((item) => (
-            <option key={item} value={item}>
-              {item}
-            </option>
-          ))}
+        <select aria-label="말머리" value={category} onChange={(event) => setCategory(event.target.value)}>
+          {boardCategories.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
         <input
           aria-label="검색어"
@@ -128,83 +107,70 @@ export function PostsPage() {
         <button type="submit">검색</button>
       </form>
 
-      <div className="board-table-wrap">
-        <table className="board-table">
-          <thead>
-            <tr>
-              <th scope="col" className="col-id">
-                번호
-              </th>
-              <th scope="col">제목</th>
-              <th scope="col" className="col-author">
-                글쓴이
-              </th>
-              <th scope="col" className="col-date">
-                날짜
-              </th>
-              <th scope="col" className="col-num">
-                조회
-              </th>
-              <th scope="col" className="col-num">
-                추천
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {pagePosts.map((post) => (
-              <tr key={post.id}>
-                <td className="muted center">{post.id}</td>
-                <td className="title-cell">
-                  <span className="category-tag">[{post.category}]</span>
-                  <Link to={`/posts/${post.id}`}>{post.title}</Link>
-                  {post.comments > 0 && <span className="comment-count">[{post.comments}]</span>}
-                  {post.hasImage && <span className="image-mark">img</span>}
-                  {post.tags.map((tag) => <span className="tag-chip" key={tag}>#{tag}</span>)}
-                </td>
-                <td>{post.author}</td>
-                <td className="center">{post.createdAt}</td>
-                <td className="center">{formatCount(post.views)}</td>
-                <td className="center">{formatCount(post.likes)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {error && <p className="field-error board-message">{error}</p>}
+      {loading ? <p className="muted board-message">게시글을 불러오는 중입니다.</p> : <PostTable posts={posts} />}
 
       <nav className="pagination" aria-label="페이지 이동">
-        <button type="button" onClick={() => movePage(Math.max(1, currentPage - 1))}>
-          이전
-        </button>
-        {Array.from({ length: totalPages }, (_, index) => {
-          const page = index + 1;
-          return (
-            <button
-              type="button"
-              key={page}
-              className={page === currentPage ? "active" : ""}
-              aria-current={page === currentPage ? "page" : undefined}
-              onClick={() => movePage(page)}
-            >
-              {page}
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          onClick={() => movePage(Math.min(totalPages, currentPage + 1))}
-        >
-          다음
-        </button>
+        <button type="button" onClick={() => movePage(Math.max(1, currentPage - 1))}>이전</button>
+        {Array.from({ length: totalPages }, (_, index) => pageButton(index + 1, currentPage, movePage))}
+        <button type="button" onClick={() => movePage(Math.min(totalPages, currentPage + 1))}>다음</button>
       </nav>
     </section>
   );
 }
 
-function formatCount(value: number) {
-  if (value >= 100000) return "100k";
-  if (value >= 10000) return "10k";
-  if (value >= 1000) return "1k";
-  return String(value);
+function PostTable({ posts }: { posts: Post[] }) {
+  if (!posts.length) return <p className="muted board-message">게시글이 없습니다.</p>;
+  return (
+    <div className="board-table-wrap">
+      <table className="board-table">
+        <thead>
+          <tr>
+            <th scope="col" className="col-id">번호</th>
+            <th scope="col">제목</th>
+            <th scope="col" className="col-author">글쓴이</th>
+            <th scope="col" className="col-date">날짜</th>
+            <th scope="col" className="col-num">조회</th>
+            <th scope="col" className="col-num">추천</th>
+          </tr>
+        </thead>
+        <tbody>{posts.map((post) => <PostRow post={post} key={post.id} />)}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function PostRow({ post }: { post: Post }) {
+  return (
+    <tr>
+      <td className="muted center">{post.id}</td>
+      <td className="title-cell">
+        <span className="category-tag">[{post.category}]</span>
+        <Link to={`/posts/${post.id}`}>{post.title}</Link>
+        {post.comments > 0 && <span className="comment-count">[{post.comments}]</span>}
+        {post.hasImage && <span className="image-mark">img</span>}
+        {post.tags.map((tag) => <span className="tag-chip" key={tag}>#{tag}</span>)}
+      </td>
+      <td>{post.author}</td>
+      <td className="center">{post.createdAt}</td>
+      <td className="center">{formatCount(post.views)}</td>
+      <td className="center">{formatCount(post.likes)}</td>
+    </tr>
+  );
+}
+
+function pageButton(page: number, currentPage: number, movePage: (page: number) => void) {
+  return (
+    <button
+      type="button"
+      key={page}
+      className={page === currentPage ? "active" : ""}
+      aria-current={page === currentPage ? "page" : undefined}
+      onClick={() => movePage(page)}
+    >
+      {page}
+    </button>
+  );
 }
 
 function isBoardCategory(value: string): value is BoardCategory {

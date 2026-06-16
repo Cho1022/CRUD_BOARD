@@ -1,5 +1,15 @@
-import type { ApiResponse, AuthData, BackendPost, CommentItem, LikeResult, Member, PageResponse, Post } from "../types";
-import { typeCategory } from "../data/mockPosts";
+import type {
+  ApiResponse,
+  AuthData,
+  BackendPost,
+  CommentItem,
+  LikeResult,
+  Member,
+  PageResponse,
+  Post,
+  RagAskResponse
+} from "../types";
+import { typeCategory } from "./postCategory";
 
 type JsonObject = Record<string, unknown>;
 
@@ -18,6 +28,7 @@ export class ApiError extends Error {
 const API_BASE = import.meta.env.DEV
   ? "/api"
   : import.meta.env.VITE_API_BASE_URL || "/api";
+const RAG_API_BASE = import.meta.env.VITE_RAG_API_BASE_URL || "http://localhost:8000";
 
 type ApiOptions = Omit<RequestInit, "body"> & {
   body?: BodyInit | JsonObject | null;
@@ -71,6 +82,37 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
   return data as T;
 }
 
+export async function ragFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  let body: BodyInit | null | undefined = options.body as BodyInit | null | undefined;
+
+  if (isJsonBody(options.body)) {
+    headers.set("Content-Type", "application/json");
+    body = JSON.stringify(options.body);
+  }
+
+  const response = await fetch(`${RAG_API_BASE}${path}`, {
+    ...options,
+    headers,
+    body
+  });
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : await response.text();
+
+  if (!response.ok) {
+    const message =
+      typeof data === "object" && data && "detail" in data
+        ? String((data as { detail: unknown }).detail)
+        : `AI 비서 요청에 실패했습니다. (${response.status})`;
+    throw new ApiError(response.status, message, data);
+  }
+
+  return data as T;
+}
+
 async function retryAfterRefresh(path: string, options: RequestInit) {
   const refreshed = await fetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
@@ -105,7 +147,7 @@ export function toPost(post: BackendPost): Post {
     title: post.title,
     author: post.authorNickname,
     category: typeCategory[post.postType],
-    createdAt: post.createdAt.replace("T", " ").slice(0, 19),
+    createdAt: formatPostCreatedAt(post.createdAt),
     views: post.viewCount,
     likes: post.likeCount,
     comments: post.commentCount,
@@ -114,6 +156,21 @@ export function toPost(post: BackendPost): Post {
     tags: post.tags,
     imageUrl: post.imageUrl
   };
+}
+
+function formatPostCreatedAt(createdAt: string) {
+  const date = createdAt.slice(0, 10);
+  const time = createdAt.slice(11, 16);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return createdAt;
+  return date === today() ? time : date;
+}
+
+function today() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export const api = {
@@ -137,6 +194,8 @@ export const api = {
     apiFetch<ApiResponse<CommentItem>>(`/posts/${postId}/comments`, { method: "POST", body: { content } }),
   suggestTags: (title: string, content: string) =>
     apiFetch<ApiResponse<{ tags: string[] }>>("/tags/suggest", { method: "POST", body: { title, content } }),
+  askRag: (question: string) =>
+    ragFetch<RagAskResponse>("/rag/ask", { method: "POST", body: { question } }),
   updateProfile: (body: BodyInit) => apiFetch<ApiResponse<Member>>("/members/me/profile", { method: "PATCH", body }),
   updatePassword: (body: JsonObject) => apiFetch("/members/me/password", { method: "PATCH", body })
 };

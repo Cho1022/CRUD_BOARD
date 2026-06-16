@@ -81,3 +81,20 @@ export interface LikeResult {
   liked: boolean;
   likeCount: number;
 }
+
+export interface RagSource {
+  title: string;
+  sourceUrl: string;
+  score: number;
+}
+
+export interface RagAction {
+  label: string;
+  url: string;
+}
+
+export interface RagAskResponse {
+  answer: string;
+  actions: RagAction[];
+  sources: RagSource[];
+}

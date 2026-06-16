@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { apiFetch } from "../lib/api";
+import { apiFetch, toPost } from "../lib/api";
+import type { BackendPost } from "../types";
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -9,6 +10,7 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   window.localStorage.clear();
 });
@@ -65,3 +67,36 @@ describe("apiFetch token refresh", () => {
     expect((retryInit?.headers as Headers).get("Authorization")).toBe("Bearer fresh-token");
   });
 });
+
+describe("toPost date display", () => {
+  it("shows today's post time as HH:mm", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-14T12:00:00"));
+
+    expect(toPost(backendPost({ createdAt: "2026-06-14T09:30:00" })).createdAt).toBe("09:30");
+  });
+
+  it("shows older post dates as YYYY-MM-DD", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T12:00:00"));
+
+    expect(toPost(backendPost({ createdAt: "2026-06-14T09:30:00" })).createdAt).toBe("2026-06-14");
+  });
+});
+
+function backendPost(overrides: Partial<BackendPost> = {}): BackendPost {
+  return {
+    id: 1,
+    postType: "GENERAL",
+    title: "title",
+    content: "content",
+    authorNickname: "tester",
+    tags: [],
+    commentCount: 0,
+    likeCount: 0,
+    viewCount: 0,
+    imageUrl: null,
+    createdAt: "2026-06-14T09:30:00",
+    ...overrides
+  };
+}

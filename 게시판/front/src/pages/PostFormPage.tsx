@@ -1,6 +1,5 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getPostById } from "../data/mockPosts";
 import { api, apiErrorMessage, toPost } from "../lib/api";
 import type { BackendPost, Post, PostType } from "../types";
 
@@ -31,9 +30,7 @@ export function PostFormPage() {
       const response = await api.post(id);
       fillRemotePost(response.data);
     } catch {
-      const fallback = getPostById(id);
-      if (fallback) fillPost(fallback);
-      else setError("게시글을 불러오지 못했습니다.");
+      setError("게시글을 불러오지 못했습니다.");
     }
   }
 
@@ -150,6 +147,20 @@ export function PostFormPage() {
         </label>
 
         <label>
+          말머리
+          <select
+            aria-label="말머리"
+            value={postType}
+            onChange={(event) => setPostType(event.target.value as PostType)}
+          >
+            <option value="GENERAL">일반</option>
+            <option value="NOTICE">공지</option>
+            <option value="FAQ">FAQ</option>
+            <option value="QUESTION">질문</option>
+          </select>
+        </label>
+
+        <label>
           태그
           <input
             aria-label="태그"
@@ -168,6 +179,16 @@ export function PostFormPage() {
             </button>
           ))}
         </div>
+
+        <label>
+          관련 경로
+          <input
+            aria-label="관련 경로"
+            value={canonicalUrl}
+            onChange={(event) => setCanonicalUrl(event.target.value)}
+            placeholder="/password/edit"
+          />
+        </label>
 
         <label>
           이미지
