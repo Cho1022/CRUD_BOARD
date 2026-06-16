@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 python-dotenv
 httpx
-langchain
+langchain-core
 langchain-openai
-numpy
+psycopg[binary]
+pgvector
